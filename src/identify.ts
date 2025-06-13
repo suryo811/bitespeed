@@ -9,6 +9,7 @@ function unique<T>(arr: (T | null | undefined)[]): T[] {
 }
 
 router.post("/", async (req: Request, res: Response): Promise<any> => {
+  console.log("/identify ROUTE HIT 🚀");
   const { email, phoneNumber } = req.body;
 
   if (!email && !phoneNumber) {
@@ -93,6 +94,41 @@ router.post("/", async (req: Request, res: Response): Promise<any> => {
       });
     }
   }
+
+  // 6. If user provided a new email or phone, create as a new secondary
+  const allEmails = unique(allContacts.map((c) => c.email));
+  const allPhones = unique(allContacts.map((c) => c.phoneNumber));
+  let addedNewContact = false;
+  if ((email && !allEmails.includes(email)) || (phoneNumber && !allPhones.includes(phoneNumber))) {
+    const newSecondary = await prisma.contact.create({
+      data: {
+        email,
+        phoneNumber,
+        linkPrecedence: "secondary",
+        linkedId: primaryContact.id,
+      },
+    });
+    allContacts.push(newSecondary);
+    if (newSecondary.email && !allEmails.includes(newSecondary.email))
+      allEmails.push(newSecondary.email);
+    if (newSecondary.phoneNumber && !allPhones.includes(newSecondary.phoneNumber))
+      allPhones.push(newSecondary.phoneNumber);
+    addedNewContact = true;
+  }
+
+  // 7. Prepare the response
+  const secondaryContactIds = allContacts
+    .filter((c) => c.id !== primaryContact.id)
+    .map((c) => c.id);
+
+  res.json({
+    contact: {
+      primaryContatctId: primaryContact.id,
+      emails: allEmails,
+      phoneNumbers: allPhones,
+      secondaryContactIds,
+    },
+  });
 });
 
 export default router;
