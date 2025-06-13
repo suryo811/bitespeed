@@ -76,6 +76,23 @@ router.post("/", async (req: Request, res: Response): Promise<any> => {
     }
     keepSearching = allContacts.length > beforeCount;
   }
+
+  // 4. Find the oldest contact = primary
+  allContacts.sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
+  const primaryContact = allContacts[0];
+
+  // 5. Make sure all others are set as secondary (linked to primary)
+  for (const c of allContacts) {
+    if (
+      c.id !== primaryContact.id &&
+      (c.linkPrecedence !== "secondary" || c.linkedId !== primaryContact.id)
+    ) {
+      await prisma.contact.update({
+        where: { id: c.id },
+        data: { linkPrecedence: "secondary", linkedId: primaryContact.id },
+      });
+    }
+  }
 });
 
 export default router;
